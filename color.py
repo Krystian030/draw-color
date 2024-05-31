@@ -42,7 +42,7 @@ class Draw():
             # r = self.read_basic(x,x_hat,h_dec_prev)
             r = self.read_attention(x,x_hat,h_dec_prev)
             # encode it to gauss distrib
-            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(enc_state, tf.concat(1, [r, h_dec_prev]))
+            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(enc_state, tf.concat(axis=1, values=[r, h_dec_prev]))
             # sample from the distrib to get z
             z = self.sampleQ(self.mu[t],self.sigma[t])
             # retrieve the hidden layer of RNN
@@ -83,7 +83,7 @@ class Draw():
         with tf.variable_scope(scope, reuse=self.share_parameters):
             parameters = dense(h_dec, self.n_hidden, 5)
         # gx_, gy_: center of 2d gaussian on a scale of -1 to 1
-        gx_, gy_, log_sigma2, log_delta, log_gamma = tf.split(1,5,parameters)
+        gx_, gy_, log_sigma2, log_delta, log_gamma = tf.split(parameters, 5, axis=1)
 
         # move gx/gy to be a scale of -imgsize to +imgsize
         gx = (self.img_size+1)/2 * (gx_ + 1)
@@ -123,7 +123,7 @@ class Draw():
 
     # the read() operation without attention
     def read_basic(self, x, x_hat, h_dec_prev):
-        return tf.concat(1,[x,x_hat])
+        return tf.concat(axis=1, values=[x,x_hat])
 
     def read_attention(self, x, x_hat, h_dec_prev):
         Fx, Fy, gamma = self.attn_window("read", h_dec_prev)
@@ -137,13 +137,13 @@ class Draw():
 
             # color1, color2, color3, color1, color2, color3, etc.
             batch_colors_array = tf.reshape(img_t, [self.num_colors * self.batch_size, self.img_size, self.img_size])
-            Fx_array = tf.concat(0, [Fx, Fx, Fx])
-            Fy_array = tf.concat(0, [Fy, Fy, Fy])
+            Fx_array = tf.concat(axis=0, values=[Fx, Fx, Fx])
+            Fy_array = tf.concat(axis=0, values=[Fy, Fy, Fy])
 
             Fxt = tf.transpose(Fx_array, perm=[0,2,1])
 
             # Apply the gaussian patches:
-            glimpse = tf.batch_matmul(Fy_array, tf.batch_matmul(batch_colors_array, Fxt))
+            glimpse = tf.matmul(Fy_array, tf.matmul(batch_colors_array, Fxt))
             glimpse = tf.reshape(glimpse, [self.num_colors, self.batch_size, self.attention_n, self.attention_n])
             glimpse = tf.transpose(glimpse, [1,2,3,0])
             glimpse = tf.reshape(glimpse, [self.batch_size, self.attention_n*self.attention_n*self.num_colors])
@@ -151,7 +151,7 @@ class Draw():
             return glimpse * tf.reshape(gamma, [-1, 1])
         x = filter_img(x, Fx, Fy, gamma)
         x_hat = filter_img(x_hat, Fx, Fy, gamma)
-        return tf.concat(1, [x, x_hat])
+        return tf.concat(axis=1, values=[x, x_hat])
 
     # encode an attention patch
     def encode(self, prev_state, image):
@@ -195,12 +195,12 @@ class Draw():
 
         # color1, color2, color3, color1, color2, color3, etc.
         w_array = tf.reshape(w_t, [self.num_colors * self.batch_size, self.attention_n, self.attention_n])
-        Fx_array = tf.concat(0, [Fx, Fx, Fx])
-        Fy_array = tf.concat(0, [Fy, Fy, Fy])
+        Fx_array = tf.concat(axis=0, values=[Fx, Fx, Fx])
+        Fy_array = tf.concat(axis=0, values=[Fy, Fy, Fy])
 
         Fyt = tf.transpose(Fy_array, perm=[0,2,1])
         # [vert, attn_n] * [attn_n, attn_n] * [attn_n, horiz]
-        wr = tf.batch_matmul(Fyt, tf.batch_matmul(w_array, Fx_array))
+        wr = tf.matmul(Fyt, tf.matmul(w_array, Fx_array))
         sep_colors = tf.reshape(wr, [self.batch_size, self.num_colors, self.img_size**2])
         wr = tf.reshape(wr, [self.num_colors, self.batch_size, self.img_size, self.img_size])
         wr = tf.transpose(wr, [1,2,3,0])
@@ -303,7 +303,8 @@ class Draw():
 
 
 
-
-model = Draw()
-# model.train()
-model.view()
+if __name__ == "__main__":
+    # print tensorflow version
+    model = Draw()
+    model.train()
+    # model.view()

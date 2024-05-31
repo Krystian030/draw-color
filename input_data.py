@@ -27,14 +27,14 @@ def extract_images(filename):
     """Extract the images into a 4D uint8 numpy array [index, y, x, depth]."""
     print 'Extracting', filename
     with gzip.open(filename) as bytestream:
-        magic = _read32(bytestream)
+        magic = _read32(bytestream)[0]
         if magic != 2051:
             raise ValueError(
                 'Invalid magic number %d in MNIST image file: %s' %
                 (magic, filename))
-        num_images = _read32(bytestream)
-        rows = _read32(bytestream)
-        cols = _read32(bytestream)
+        num_images = _read32(bytestream)[0]
+        rows = _read32(bytestream)[0]
+        cols = _read32(bytestream)[0]
         buf = bytestream.read(rows * cols * num_images)
         data = numpy.frombuffer(buf, dtype=numpy.uint8)
         data = data.reshape(num_images, rows, cols, 1)
@@ -54,12 +54,12 @@ def extract_labels(filename, one_hot=False):
     """Extract the labels into a 1D uint8 numpy array [index]."""
     print 'Extracting', filename
     with gzip.open(filename) as bytestream:
-        magic = _read32(bytestream)
+        magic = _read32(bytestream)[0]
         if magic != 2049:
             raise ValueError(
                 'Invalid magic number %d in MNIST label file: %s' %
                 (magic, filename))
-        num_items = _read32(bytestream)
+        num_items = _read32(bytestream)[0]
         buf = bytestream.read(num_items)
         labels = numpy.frombuffer(buf, dtype=numpy.uint8)
         if one_hot:
@@ -139,10 +139,10 @@ def read_data_sets(train_dir, fake_data=False, one_hot=False):
         data_sets.validation = DataSet([], [], fake_data=True)
         data_sets.test = DataSet([], [], fake_data=True)
         return data_sets
-    TRAIN_IMAGES = 'train-images-idx3-ubyte.gz'
-    TRAIN_LABELS = 'train-labels-idx1-ubyte.gz'
-    TEST_IMAGES = 't10k-images-idx3-ubyte.gz'
-    TEST_LABELS = 't10k-labels-idx1-ubyte.gz'
+    TRAIN_IMAGES = 'train-images.idx3-ubyte.gz'
+    TRAIN_LABELS = 'train-labels.idx1-ubyte.gz'
+    TEST_IMAGES = 't10k-images.idx3-ubyte.gz'
+    TEST_LABELS = 't10k-labels.idx1-ubyte.gz'
     VALIDATION_SIZE = 5000
     local_file = maybe_download(TRAIN_IMAGES, train_dir)
     train_images = extract_images(local_file)

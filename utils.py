@@ -3,6 +3,7 @@ import numpy as np
 import random
 import tensorflow as tf
 import cPickle
+from PIL import Image
 
 
 def get_image(image_path, image_size, is_crop=True):
@@ -46,9 +47,13 @@ def unpickle(file):
   fo.close()
   return dict
 
+# def ims(name, img):
+#     # print img[:10][:10]
+#     toimage(img, cmin=0, cmax=1).save(name)
+
 def ims(name, img):
-    # print img[:10][:10]
-    scipy.misc.toimage(img, cmin=0, cmax=1).save(name)
+    img = (img * 255).astype(np.uint8)  # Convert to uint8
+    Image.fromarray(img).save(name)
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))

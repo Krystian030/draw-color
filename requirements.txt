@@ -1,0 +1,5 @@
+tensorflow==1.15.0
+numpy==1.16.6
+matplotlib==2.2.5
+scipy==0.17.1
+Pillow==6.2.2

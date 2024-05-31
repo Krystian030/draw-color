@@ -41,7 +41,9 @@ class Draw():
             print r.get_shape()
             # r = self.read_attention(x,x_hat,h_dec_prev)
             # encode it to guass distrib
-            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(enc_state, tf.concat(1, [r, h_dec_prev]))
+            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(
+                enc_state, tf.concat([r, h_dec_prev], axis=1)
+            )
             # sample from the distrib to get z
             z = self.sampleQ(self.mu[t],self.sigma[t])
             print z.get_shape()
@@ -138,7 +140,7 @@ class Draw():
 
     # the read() operation without attention
     def read_basic(self, x, x_hat, h_dec_prev):
-        return tf.concat(1,[x,x_hat])
+        return tf.concat([x, x_hat], axis=1)
 
     def read_attention(self, x, x_hat, h_dec_prev):
         Fx, Fy, gamma = self.attn_window("read", h_dec_prev)
@@ -158,7 +160,7 @@ class Draw():
             return glimpse * tf.reshape(gamma, [-1, 1])
         x = filter_img(x, Fx, Fy, gamma)
         x_hat = filter_img(x_hat, Fx, Fy, gamma)
-        return tf.concat(1, [x, x_hat])
+        return tf.concat([x, x_hat], axis=1)
 
     # encode an attention patch
     def encode(self, prev_state, image):
@@ -203,6 +205,6 @@ class Draw():
         return wr * tf.reshape(1.0/gamma, [-1, 1])
 
 
-
-model = Draw()
-model.train()
+if __name__ == "__main__":
+    model = Draw()
+    model.train()
