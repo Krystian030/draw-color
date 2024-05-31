@@ -2,6 +2,9 @@
 *.pyo
 *.pyd
 
+results/
+Datasets/celebA/
+training/
 .idea/
 __pycache__/
 .env
