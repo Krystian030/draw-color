@@ -103,7 +103,7 @@ class Draw():
         with tf.variable_scope(scope, reuse=self.share_parameters):
             parameters = dense(h_dec, self.n_hidden, 5)
         # gx_, gy_: center of 2d gaussian on a scale of -1 to 1
-        gx_, gy_, log_sigma2, log_delta, log_gamma = tf.split(1,5,parameters)
+        gx_, gy_, log_sigma2, log_delta, log_gamma = tf.split(parameters,5,axis=1)
 
         # move gx/gy to be a scale of -imgsize to +imgsize
         gx = (self.img_size+1)/2 * (gx_ + 1)
@@ -154,7 +154,7 @@ class Draw():
             # allfilters = [attn, vert] * [imgsize,imgsize] * [horiz, attn]
             # we have batches, so the full batch_matmul equation looks like:
             # [1, 1, vert] * [batchsize,imgsize,imgsize] * [1, horiz, 1]
-            glimpse = tf.batch_matmul(Fy, tf.batch_matmul(img, Fxt))
+            glimpse = tf.matmul(Fy, tf.matmul(img, Fxt))
             glimpse = tf.reshape(glimpse, [-1, self.attention_n**2])
             # finally scale this glimpse w/ the gamma parameter
             return glimpse * tf.reshape(gamma, [-1, 1])
@@ -200,7 +200,7 @@ class Draw():
         Fx, Fy, gamma = self.attn_window("write", hidden_layer)
         Fyt = tf.transpose(Fy, perm=[0,2,1])
         # [vert, attn_n] * [attn_n, attn_n] * [attn_n, horiz]
-        wr = tf.batch_matmul(Fyt, tf.batch_matmul(w, Fx))
+        wr = tf.matmul(Fyt, tf.matmul(w, Fx))
         wr = tf.reshape(wr, [self.batch_size, self.img_size**2])
         return wr * tf.reshape(1.0/gamma, [-1, 1])
 

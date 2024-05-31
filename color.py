@@ -209,7 +209,7 @@ class Draw():
 
 
     def train(self):
-        data = glob(os.path.join("../Datasets/celebA", "*.jpg"))
+        data = glob("./Datasets/celebA/*.jpg")
         base = np.array([get_image(sample_file, 108, is_crop=True) for sample_file in data[0:64]])
         base += 1
         base /= 2
@@ -304,7 +304,6 @@ class Draw():
 
 
 if __name__ == "__main__":
-    # print tensorflow version
     model = Draw()
     model.train()
-    # model.view()
+    model.view()
