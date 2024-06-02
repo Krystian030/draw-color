@@ -1,5 +1,7 @@
 # takes data saved by DRAW model and generates animations
 # example usage: python plot_data.py noattn /tmp/draw/draw_data.npy
+import math
+import os
 
 import matplotlib
 import sys
@@ -37,9 +39,10 @@ def xrecons_grid(X,B,A):
 	return img
 
 if __name__ == '__main__':
+	attention_points = np.load('attention_points.npy')
 	prefix=sys.argv[1]
 	out_file=sys.argv[2]
-	C=np.load(out_file)
+	C = np.load(out_file)
 	T,batch_size,img_size=C.shape
 	X=1.0/(1.0+np.exp(-C)) # x_recons=sigmoid(canvas)
 	B=A=int(np.sqrt(img_size))
@@ -51,8 +54,22 @@ if __name__ == '__main__':
 			arr[t].matshow(img,cmap=plt.cm.gray)
 			arr[t].set_xticks([])
 			arr[t].set_yticks([])
+
 		else:
 			plt.matshow(img,cmap=plt.cm.gray)
+			range_i = int(math.sqrt(batch_size))
+			counter = 0
+			for i in range(range_i):
+				for j in range(range_i):
+					x,y,d = attention_points[t][counter]
+					x = x + (np.sqrt(img_size) + 2) * j
+					y = y + (np.sqrt(img_size) + 2) * i
+					# plot square with side length d
+					counter += 1
+					plt.plot([x-d/2,x-d/2,x+d/2,x+d/2,x-d/2],[y-d/2,y+d/2,y+d/2,y-d/2,y-d/2],'r')
+
+			if not os.path.exists('tmp'):
+				os.makedirs('tmp')
 			imgname='%s_%d.png' % (prefix,t) # you can merge using imagemagick, i.e. convert -delay 10 -loop 0 *.png mnist.gif
-			plt.savefig(imgname)
+			plt.savefig('tmp/'+imgname)
 			print(imgname)

@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 import numpy as np
 from ops import *
@@ -15,9 +17,16 @@ class Draw():
         self.attention_n = 5
         self.n_hidden = 256
         self.n_z = 10
-        self.sequence_length = 10
+        self.sequence_length = 15
         self.batch_size = 64
         self.share_parameters = False
+        self.step = 500
+        self.epochs = 2500
+
+        self.point_size = 3
+        self.gx = None
+        self.attention_points = np.zeros((self.sequence_length, self.batch_size,  self.point_size))
+        self.attention_point = np.zeros((self.batch_size,  self.point_size))
 
         self.images = tf.placeholder(tf.float32, [None, 784])
         self.e = tf.random_normal((self.batch_size, self.n_z), mean=0, stddev=1) # Qsampler noise
@@ -32,14 +41,16 @@ class Draw():
         dec_state = self.lstm_dec.zero_state(self.batch_size, tf.float32)
 
         x = self.images
+        self.attn_params = []
         for t in range(self.sequence_length):
             # error image + original image
             c_prev = tf.zeros((self.batch_size, self.img_size**2)) if t == 0 else self.cs[t-1]
             x_hat = x - tf.sigmoid(c_prev)
             # read the image
-            r = self.read_basic(x,x_hat,h_dec_prev)
+            # r = self.read_basic(x,x_hat,h_dec_prev)
+            r = self.read_attention(x,x_hat,h_dec_prev)
             print r.get_shape()
-            # r = self.read_attention(x,x_hat,h_dec_prev)
+
             # encode it to guass distrib
             self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(
                 enc_state, tf.concat([r, h_dec_prev], axis=1)
@@ -53,8 +64,8 @@ class Draw():
             print h_dec.get_shape()
 
             # map from hidden layer -> image portion, and then write it.
-            self.cs[t] = c_prev + self.write_basic(h_dec)
-            # self.cs[t] = c_prev + self.write_attention(h_dec)
+            # self.cs[t] = c_prev + self.write_basic(h_dec)
+            self.cs[t] = c_prev + self.write_attention(h_dec)
             h_dec_prev = h_dec
             self.share_parameters = True # from now on, share variables
 
@@ -82,20 +93,43 @@ class Draw():
         self.sess.run(tf.initialize_all_variables())
 
     def train(self):
-        for i in xrange(15000):
-            xtrain, _ = self.mnist.train.next_batch(self.batch_size)
-            cs, gen_loss, lat_loss, _ = self.sess.run([self.cs, self.generation_loss, self.latent_loss, self.train_op], feed_dict={self.images: xtrain})
-            print "iter %d genloss %f latloss %f" % (i, gen_loss, lat_loss)
-            if i % 500 == 0:
+        step_save = self.step
+        attention_frame = np.zeros((self.sequence_length, self.batch_size, self.img_size**2))
 
+        for i in xrange(self.epochs):
+            xtrain, _ = self.mnist.train.next_batch(self.batch_size)
+            cs, attn_params, gen_loss, lat_loss, _ = self.sess.run(
+                [self.cs, self.attn_params, self.generation_loss, self.latent_loss, self.train_op],
+                feed_dict={self.images: xtrain}
+            )
+
+            print "iter %d genloss %f latloss %f" % (i, gen_loss, lat_loss)
+            # if i % step_save == 0:
+            if i == self.epochs - 1:
                 cs = 1.0/(1.0+np.exp(-np.array(cs))) # x_recons=sigmoid(canvas)
 
-                for cs_iter in xrange(10):
+                results = None
+                for cs_iter in xrange(self.sequence_length):
                     results = cs[cs_iter]
                     results_square = np.reshape(results, [-1, 28, 28])
                     print results_square.shape
                     ims("results/"+str(i)+"-step-"+str(cs_iter)+".jpg",merge(results_square,[8,8]))
+                    for j in xrange(64):
+                        center_x = int(attn_params[cs_iter][0][j][0])
+                        center_y = int(attn_params[cs_iter][1][j][0])
+                        distance = int(attn_params[cs_iter][2][j][0])
+                        self.attention_point[j] = [center_x, center_y, distance]
 
+                # Add results to attention_frame
+                    attention_frame[cs_iter] = results
+                    self.attention_points[cs_iter] = self.attention_point
+
+                np.save("attention_frame.npy", attention_frame)
+                np.save("attention_points.npy", self.attention_points)
+
+        # # transform tensors to numpy arrays
+        # np.save("attention_frame.npy", attention_frame)
+        # np.save("attention_points.npy", self.attention_points)
 
     # given a hidden decoder layer:
     # locate where to put attention filters
@@ -113,6 +147,9 @@ class Draw():
         # stride/delta: how far apart these patches will be
         delta = (self.img_size - 1) / ((self.attention_n-1) * tf.exp(log_delta))
         # returns [Fx, Fy, gamma]
+
+        self.attn_params.append([gx, gy, delta])
+
         return self.filterbank(gx,gy,sigma2,delta) + (tf.exp(log_gamma),)
 
     # Given a center, distance, and spread
@@ -203,6 +240,56 @@ class Draw():
         wr = tf.matmul(Fyt, tf.matmul(w, Fx))
         wr = tf.reshape(wr, [self.batch_size, self.img_size**2])
         return wr * tf.reshape(1.0/gamma, [-1, 1])
+
+   # def view(self):
+   #      saver = tf.train.Saver(max_to_keep=2)
+   #      saver.restore(self.sess, tf.train.latest_checkpoint(os.getcwd()+"/training/"))
+   #
+   #      cs, attn_params, gen_loss, lat_loss = self.sess.run([self.cs, self.attn_params, self.generation_loss, self.latent_loss], feed_dict={self.images: base})
+   #      print "genloss %f latloss %f" % (gen_loss, lat_loss)
+   #
+   #      cs = 1.0/(1.0+np.exp(-np.array(cs))) # x_recons=sigmoid(canvas)
+   #
+   #      print np.shape(cs)
+   #      print np.shape(attn_params)
+   #          # cs[0][cent]
+   #
+   #      for cs_iter in xrange(10):
+   #          results = cs[cs_iter]
+   #          results_square = np.reshape(results, [-1, self.img_size, self.img_size, self.num_colors])
+   #
+   #          print np.shape(results_square)
+   #
+   #          for i in xrange(64):
+   #              center_x = int(attn_params[cs_iter][0][i][0])
+   #              center_y = int(attn_params[cs_iter][1][i][0])
+   #              distance = int(attn_params[cs_iter][2][i][0])
+   #
+   #              size = 2;
+   #
+   #              # for x in xrange(3):
+   #              #     for y in xrange(3):
+   #              #         nx = x - 1;
+   #              #         ny = y - 1;
+   #              #
+   #              #         xpos = center_x + nx*distance
+   #              #         ypos = center_y + ny*distance
+   #              #
+   #              #         xpos2 = min(max(0, xpos + size), 63)
+   #              #         ypos2 = min(max(0, ypos + size), 63)
+   #              #
+   #              #         xpos = min(max(0, xpos), 63)
+   #              #         ypos = min(max(0, ypos), 63)
+   #              #
+   #              #         results_square[i,xpos:xpos2,ypos:ypos2,0] = 0;
+   #              #         results_square[i,xpos:xpos2,ypos:ypos2,1] = 1;
+   #              #         results_square[i,xpos:xpos2,ypos:ypos2,2] = 0;
+   #              # print "%f , %f" % (center_x, center_y)
+   #
+   #          print results_square
+   #
+   #          ims("results/view-clean-step-"+str(cs_iter)+".jpg",merge_color(results_square,[8,8]))
+
 
 
 if __name__ == "__main__":
