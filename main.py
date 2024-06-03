@@ -10,6 +10,9 @@ import input_data
 
 class Draw():
     def __init__(self):
+        self.genloss_history = []
+        self.latloss_history = []
+
         self.mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
         self.n_samples = self.mnist.train.num_examples
 
@@ -104,6 +107,9 @@ class Draw():
             )
 
             print "iter %d genloss %f latloss %f" % (i, gen_loss, lat_loss)
+            self.genloss_history.append(gen_loss)
+            self.latloss_history.append(lat_loss)
+
             # if i % step_save == 0:
             if i == self.epochs - 1:
                 cs = 1.0/(1.0+np.exp(-np.array(cs))) # x_recons=sigmoid(canvas)
@@ -130,6 +136,8 @@ class Draw():
         # # transform tensors to numpy arrays
         # np.save("attention_frame.npy", attention_frame)
         # np.save("attention_points.npy", self.attention_points)
+        np.save("genloss_history_mnist_attn.npy", np.array(self.genloss_history))
+        np.save("latloss_history_mnist_attn.npy", np.array(self.latloss_history))
 
     # given a hidden decoder layer:
     # locate where to put attention filters
