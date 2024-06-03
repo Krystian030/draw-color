@@ -70,6 +70,6 @@ if __name__ == '__main__':
 
 			if not os.path.exists('tmp'):
 				os.makedirs('tmp')
-			imgname='%s_%d.png' % (prefix,t) # you can merge using imagemagick, i.e. convert -delay 10 -loop 0 *.png mnist.gif
+			imgname='%s_%d.png_test' % (prefix,t) # you can merge using imagemagick, i.e. convert -delay 10 -loop 0 *.png_test mnist.gif
 			plt.savefig('tmp/'+imgname)
 			print(imgname)
